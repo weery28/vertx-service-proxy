@@ -7,6 +7,7 @@ import io.vertx.core.eventbus.DeliveryOptions
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
 import io.vertx.reactivex.core.eventbus.EventBus
+import me.coweery.vertx.service.proxy.DeliveryOptionsBuilder
 import me.coweery.vertx.service.proxy.EB_COMPLETABLE_METHOD_SUCCESS
 import me.coweery.vertx.service.proxy.EB_METHOD_ARGUMENTS_KEY
 import me.coweery.vertx.service.proxy.EB_METHOD_HEADER
@@ -32,6 +33,8 @@ class EbProxyFactoryImpl : EbProxyFactory {
         private val address: String
     ) : InvocationHandler {
 
+        private val deliveryOptionsBuilder = DeliveryOptionsBuilder()
+
         override fun invoke(proxy: Any, method: Method, args: Array<out Any>): Any {
 
             val deliveryOptions = createDeliveryOptions(method, args)
@@ -47,7 +50,8 @@ class EbProxyFactoryImpl : EbProxyFactory {
         private fun createDeliveryOptions(method: Method, args: Array<out Any>): DeliveryOptions {
 
             return DeliveryOptions(
-                (args.firstOrNull { it is DeliveryOptions } as DeliveryOptions?) ?: DeliveryOptions()
+                (args.firstOrNull { it is DeliveryOptions } as DeliveryOptions?)
+                    ?: deliveryOptionsBuilder.build(method)
             ).addHeader(EB_METHOD_HEADER, method.name)
         }
 
