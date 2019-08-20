@@ -46,7 +46,7 @@ class EventBusSubscriberImpl : EventBusSubscriber {
             if (throwable != null) {
                 message.fail(1, throwable.message)
             } else {
-                message.reply(JsonObject().put(EB_METHOD_RESULT_KEY, res))
+                message.reply(JsonObject().put(EB_METHOD_RESULT_KEY, JsonObject.mapFrom(res)))
             }
         }
     }
