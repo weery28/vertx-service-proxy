@@ -11,7 +11,6 @@ import io.vertx.reactivex.core.eventbus.EventBus
 import io.vertx.reactivex.core.eventbus.Message
 import java.lang.reflect.Method
 
-
 interface EventBusSubscriber {
 
     fun <T : Any> subscribe(eventBus: EventBus, serviceInterface: Class<T>, serviceImpl: T)
@@ -73,7 +72,6 @@ class EventBusSubscriberImpl : EventBusSubscriber {
                 index += 1
                 val type = parameter.parameterizedType
                 Json.mapper.readValue(args.getValue(index).toString(), TypeFactory.rawClass(type))
-
             }
         }.toTypedArray()
     }

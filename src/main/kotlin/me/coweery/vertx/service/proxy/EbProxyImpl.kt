@@ -5,7 +5,7 @@ import me.coweery.vertx.service.proxy.factories.proxy.EbProxyFactory
 
 class EbProxyImpl(
     private val vertx: Vertx,
-    private val proxyFactory : EbProxyFactory,
+    private val proxyFactory: EbProxyFactory,
     private val eventBusSubscriber: EventBusSubscriber
 ) : EbProxy {
 

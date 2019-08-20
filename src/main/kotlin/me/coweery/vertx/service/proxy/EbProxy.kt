@@ -7,12 +7,12 @@ interface EbProxy {
 
     companion object {
 
-        fun create(vertx : Vertx) : EbProxy{
+        fun create(vertx: Vertx): EbProxy {
             return EbProxyImpl(vertx, EbProxyFactoryImpl(), EventBusSubscriberImpl())
         }
     }
 
-    fun <T> get(serviceInterface : Class<T>) : T
+    fun <T> get(serviceInterface: Class<T>): T
 
-    fun <T : Any> attach(serviceInterface : Class<T>, implementation : T)
+    fun <T : Any> attach(serviceInterface: Class<T>, implementation: T)
 }
