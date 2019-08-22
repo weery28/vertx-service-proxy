@@ -57,7 +57,11 @@ class EbProxyFactoryImpl : EbProxyFactory {
 
         private fun createBody(args: Array<out Any>): JsonObject {
 
-            return JsonObject().put(EB_METHOD_ARGUMENTS_KEY, args.filter { it !is DeliveryOptions })
+            return JsonObject().put(
+                EB_METHOD_ARGUMENTS_KEY,
+                args.filter { it !is DeliveryOptions }
+                    .map { JsonObject.mapFrom(it) }
+            )
         }
 
         private fun returnSingle(
