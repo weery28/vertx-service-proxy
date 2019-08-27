@@ -2,6 +2,7 @@ package me.coweery.vertx.service.proxy
 
 import com.fasterxml.jackson.databind.type.TypeFactory
 import io.reactivex.Completable
+import io.reactivex.Maybe
 import io.reactivex.Single
 import io.vertx.core.eventbus.DeliveryOptions
 import io.vertx.core.json.Json
@@ -9,7 +10,9 @@ import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.reactivex.core.eventbus.EventBus
 import io.vertx.reactivex.core.eventbus.Message
+import jdk.nashorn.internal.codegen.types.Type
 import java.lang.reflect.Method
+import java.time.Instant
 
 interface EventBusSubscriber {
 
@@ -31,12 +34,13 @@ class EventBusSubscriberImpl : EventBusSubscriber {
 
             val method = serviceInterface.methods.first {
                 it.name == methodName &&
-                    it.parameters.filter { it.type != DeliveryOptions::class.java }.size == args.size()
+                        it.parameters.filter { it.type != DeliveryOptions::class.java }.size == args.size()
             }
 
             when (method.returnType) {
                 Completable::class.java -> invokeWithCompletableResult(method, args, serviceImpl, message)
                 Single::class.java -> invokeWithSingleResult(method, args, serviceImpl, message)
+                Maybe::class.java -> invokeWithMaybeResult(method, args, serviceImpl, message)
             }
         }
     }
@@ -62,6 +66,19 @@ class EventBusSubscriberImpl : EventBusSubscriber {
         )
     }
 
+    private fun invokeWithMaybeResult(method: Method, args: JsonArray, impl: Any, message: Message<JsonObject>) {
+        (method.invoke(impl, *parseArgs(method, args)) as Maybe<Any>).subscribe(
+            {
+                message.reply(JsonObject().put(EB_METHOD_RESULT_KEY, JsonObject.mapFrom(it)))
+            },
+            {
+                message.fail(1, it.message)
+            },{
+                message.reply(JsonObject())
+            }
+        )
+    }
+
     private fun parseArgs(method: Method, args: JsonArray): Array<Any> {
 
         var index = -1
@@ -71,7 +88,14 @@ class EventBusSubscriberImpl : EventBusSubscriber {
             } else {
                 index += 1
                 val type = parameter.parameterizedType
-                Json.mapper.readValue(args.getValue(index).toString(), TypeFactory.rawClass(type))
+                when (type) {
+                   String::class.java -> args.getString(index)
+                    Long::class.java -> args.getLong(index)
+                    Int::class.java -> args.getInteger(index)
+                    Instant::class.java -> args.getInstant(index)
+                    else -> Json.mapper.readValue(args.getValue(index).toString(), TypeFactory.rawClass(type))
+
+                }
             }
         }.toTypedArray()
     }

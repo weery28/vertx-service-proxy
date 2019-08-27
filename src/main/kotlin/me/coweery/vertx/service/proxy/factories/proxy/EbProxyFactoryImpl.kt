@@ -2,6 +2,7 @@ package me.coweery.vertx.service.proxy.factories.proxy
 
 import com.fasterxml.jackson.databind.type.TypeFactory
 import io.reactivex.Completable
+import io.reactivex.Maybe
 import io.reactivex.Single
 import io.vertx.core.eventbus.DeliveryOptions
 import io.vertx.core.json.Json
@@ -43,6 +44,7 @@ class EbProxyFactoryImpl : EbProxyFactory {
             return when (method.returnType) {
                 Completable::class.java -> returnCompletable(eventBus, address, body, deliveryOptions)
                 Single::class.java -> returnSingle(eventBus, address, body, deliveryOptions, method)
+                Maybe::class.java -> returnMaybe(eventBus, address, body, deliveryOptions, method)
                 else -> throw IllegalArgumentException()
             }
         }
@@ -60,7 +62,13 @@ class EbProxyFactoryImpl : EbProxyFactory {
             return JsonObject().put(
                 EB_METHOD_ARGUMENTS_KEY,
                 args.filter { it !is DeliveryOptions }
-                    .map { JsonObject.mapFrom(it) }
+                    .map {
+                        when (it){
+                            is String -> it
+                            is Number -> it.toString()
+                            else -> JsonObject.mapFrom(it)
+                        }
+                    }
             )
         }
 
@@ -82,6 +90,31 @@ class EbProxyFactoryImpl : EbProxyFactory {
                         it.body().getValue(EB_METHOD_RESULT_KEY).toString(),
                         TypeFactory.rawClass(resultClass)
                     )
+                }
+        }
+
+        private fun returnMaybe(
+            eventBus: EventBus,
+            address: String,
+            body: JsonObject,
+            deliveryOptions: DeliveryOptions,
+            method: Method
+        ): Maybe<Any> {
+
+            val generic = method.genericReturnType as ParameterizedTypeImpl
+            val resultClass = generic.actualTypeArguments.first()
+
+            return eventBus
+                .rxRequest<JsonObject>(address, body, deliveryOptions)
+                .flatMapMaybe {
+                    if (it.body().isEmpty){
+                        Maybe.empty()
+                    } else {
+                        Maybe.just(Json.mapper.readValue(
+                            it.body().getValue(EB_METHOD_RESULT_KEY).toString(),
+                            TypeFactory.rawClass(resultClass)
+                        ))
+                    }
                 }
         }
 
