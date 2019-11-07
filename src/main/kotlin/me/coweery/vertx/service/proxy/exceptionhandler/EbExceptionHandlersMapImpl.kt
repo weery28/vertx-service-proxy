@@ -1,8 +1,5 @@
 package me.coweery.vertx.service.proxy.exceptionhandler
 
-import io.vertx.core.eventbus.Message
-import io.vertx.core.eventbus.ReplyException
-import io.vertx.core.json.JsonObject
 import java.lang.reflect.Method
 import kotlin.reflect.KClass
 
@@ -24,10 +21,10 @@ class EbExceptionHandlersMapImpl : EbExceptionHandlersMap {
     override fun getReplyExceptionMapper(method: Method): EbExceptionHandler {
 
         return method.getAnnotation(me.coweery.vertx.service.proxy.annotations.options.EbExceptionHandler::class.java)?.let {
-            val key = it.mapper
-            handlers[key] ?: handlers.let {
-                val instance = key.java.newInstance() as? EbExceptionHandler ?: throw IllegalArgumentException()
-                it[key] = instance
+            val `class` = it.mapper
+            handlers[`class`] ?: handlers.let {
+                val instance = `class`.java.newInstance() as? EbExceptionHandler ?: throw IllegalArgumentException()
+                it[`class`] = instance
                 instance
             }
         } ?: defaultReplyExceptionMapper
