@@ -74,7 +74,7 @@ class EbProxyFactoryImpl(
                 EB_METHOD_ARGUMENTS_KEY,
                 args.filter { it !is DeliveryOptions }
                     .map {
-                        when (it){
+                        when(it){
                             is String -> it
                             is Number -> it.toString()
                             else -> JsonObject.mapFrom(it)
@@ -118,7 +118,7 @@ class EbProxyFactoryImpl(
             return eventBus
                 .rxRequest<JsonObject>(address, body, deliveryOptions)
                 .flatMapMaybe {
-                    if (it.body().isEmpty){
+                    if (it.body().isEmpty) {
                         Maybe.empty()
                     } else {
                         Maybe.just(Json.mapper.readValue(
@@ -150,7 +150,9 @@ class EbProxyFactoryImpl(
 
             return this.onErrorResumeNext {
                 if (it is ReplyException) {
-                    Single.error(exceptionHandler.mapFrom(EbException(it.failureCode(), it.message)))
+                    with(EbException(it.failureCode(), it.message)) {
+                        Single.error(exceptionHandler.mapFrom(this))
+                    }
                 } else {
                     Single.error(it)
                 }
@@ -161,7 +163,9 @@ class EbProxyFactoryImpl(
 
             return this.onErrorResumeNext {
                 if (it is ReplyException) {
-                    Completable.error(exceptionHandler.mapFrom(EbException(it.failureCode(), it.message)))
+                    with(EbException(it.failureCode(), it.message)) {
+                        Completable.error(exceptionHandler.mapFrom(this))
+                    }
                 } else {
                     Completable.error(it)
                 }
@@ -172,7 +176,9 @@ class EbProxyFactoryImpl(
 
             return this.onErrorResumeNext { t: Throwable ->
                 if (t is ReplyException) {
-                    Maybe.error(exceptionHandler.mapFrom(EbException(t.failureCode(), t.message)))
+                    with(EbException(t.failureCode(), t.message)) {
+                        Maybe.error(exceptionHandler.mapFrom(this))
+                    }
                 } else {
                     Maybe.error(t)
                 }

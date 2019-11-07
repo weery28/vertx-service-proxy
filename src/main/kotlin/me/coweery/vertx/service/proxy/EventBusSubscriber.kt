@@ -12,7 +12,6 @@ import io.vertx.reactivex.core.eventbus.EventBus
 import io.vertx.reactivex.core.eventbus.Message
 import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandler
 import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandlersMap
-import jdk.nashorn.internal.codegen.types.Type
 import java.lang.reflect.Method
 import java.time.Instant
 
@@ -87,7 +86,8 @@ class EventBusSubscriberImpl(
     private fun invokeWithMaybeResult(
         method: Method,
         args: JsonArray,
-        impl: Any, message: Message<JsonObject>,
+        impl: Any,
+        message: Message<JsonObject>,
         exceptionHandler: EbExceptionHandler
     ) {
         (method.invoke(impl, *parseArgs(method, args)) as Maybe<Any>).subscribe(
@@ -96,7 +96,8 @@ class EventBusSubscriberImpl(
             },
             {
                 handleException(message, exceptionHandler, it)
-            },{
+            },
+            {
                 message.reply(JsonObject())
             }
         )
@@ -117,7 +118,6 @@ class EventBusSubscriberImpl(
                     Int::class.java -> args.getInteger(index)
                     Instant::class.java -> args.getInstant(index)
                     else -> Json.mapper.readValue(args.getValue(index).toString(), TypeFactory.rawClass(type))
-
                 }
             }
         }.toTypedArray()
@@ -125,7 +125,8 @@ class EventBusSubscriberImpl(
 
     private fun handleException(message: Message<JsonObject>, handler: EbExceptionHandler, throwable: Throwable) {
 
-        val ebException = handler.mapTo(throwable)
-        message.fail(ebException.code, ebException.message)
+        with(handler.mapTo(throwable)) {
+            message.fail(code, this.message)
+        }
     }
 }
