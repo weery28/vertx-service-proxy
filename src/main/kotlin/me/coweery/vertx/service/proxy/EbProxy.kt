@@ -2,13 +2,15 @@ package me.coweery.vertx.service.proxy
 
 import io.vertx.reactivex.core.Vertx
 import me.coweery.vertx.service.proxy.factories.proxy.EbProxyFactoryImpl
+import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandlersMapImpl
 
 interface EbProxy {
 
     companion object {
 
         fun create(vertx: Vertx): EbProxy {
-            return EbProxyImpl(vertx, EbProxyFactoryImpl(), EventBusSubscriberImpl())
+            val ebExceptionHandlersMap = EbExceptionHandlersMapImpl()
+            return EbProxyImpl(vertx, EbProxyFactoryImpl(ebExceptionHandlersMap), EventBusSubscriberImpl(ebExceptionHandlersMap))
         }
     }
 

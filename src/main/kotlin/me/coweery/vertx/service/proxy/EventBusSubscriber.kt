@@ -10,7 +10,8 @@ import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.reactivex.core.eventbus.EventBus
 import io.vertx.reactivex.core.eventbus.Message
-import jdk.nashorn.internal.codegen.types.Type
+import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandler
+import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandlersMap
 import java.lang.reflect.Method
 import java.time.Instant
 
@@ -19,7 +20,9 @@ interface EventBusSubscriber {
     fun <T : Any> subscribe(eventBus: EventBus, serviceInterface: Class<T>, serviceImpl: T)
 }
 
-class EventBusSubscriberImpl : EventBusSubscriber {
+class EventBusSubscriberImpl(
+    private val ebExceptionHandlersMap: EbExceptionHandlersMap
+) : EventBusSubscriber {
 
     override fun <T : Any> subscribe(eventBus: EventBus, serviceInterface: Class<T>, serviceImpl: T) {
 
@@ -37,43 +40,64 @@ class EventBusSubscriberImpl : EventBusSubscriber {
                         it.parameters.filter { it.type != DeliveryOptions::class.java }.size == args.size()
             }
 
+            val exceptionHandler = ebExceptionHandlersMap.getReplyExceptionMapper(method)
+
             when (method.returnType) {
-                Completable::class.java -> invokeWithCompletableResult(method, args, serviceImpl, message)
-                Single::class.java -> invokeWithSingleResult(method, args, serviceImpl, message)
-                Maybe::class.java -> invokeWithMaybeResult(method, args, serviceImpl, message)
+                Completable::class.java -> invokeWithCompletableResult(method, args, serviceImpl, message, exceptionHandler)
+                Single::class.java -> invokeWithSingleResult(method, args, serviceImpl, message, exceptionHandler)
+                Maybe::class.java -> invokeWithMaybeResult(method, args, serviceImpl, message, exceptionHandler)
             }
         }
     }
 
-    private fun invokeWithSingleResult(method: Method, args: JsonArray, impl: Any, message: Message<JsonObject>) {
+    private fun invokeWithSingleResult(
+        method: Method,
+        args: JsonArray,
+        impl: Any,
+        message: Message<JsonObject>,
+        exceptionHandler: EbExceptionHandler
+    ) {
         (method.invoke(impl, *parseArgs(method, args)) as Single<Any>).subscribe { res, throwable ->
             if (throwable != null) {
-                message.fail(1, throwable.message)
+                handleException(message, exceptionHandler, throwable)
             } else {
                 message.reply(JsonObject().put(EB_METHOD_RESULT_KEY, JsonObject.mapFrom(res)))
             }
         }
     }
 
-    private fun invokeWithCompletableResult(method: Method, args: JsonArray, impl: Any, message: Message<JsonObject>) {
+    private fun invokeWithCompletableResult(
+        method: Method,
+        args: JsonArray,
+        impl: Any,
+        message: Message<JsonObject>,
+        exceptionHandler: EbExceptionHandler
+    ) {
         (method.invoke(impl, *parseArgs(method, args)) as Completable).subscribe(
             {
                 message.reply(EB_COMPLETABLE_METHOD_SUCCESS)
             },
             {
-                message.fail(1, it.message)
+                handleException(message, exceptionHandler, it)
             }
         )
     }
 
-    private fun invokeWithMaybeResult(method: Method, args: JsonArray, impl: Any, message: Message<JsonObject>) {
+    private fun invokeWithMaybeResult(
+        method: Method,
+        args: JsonArray,
+        impl: Any,
+        message: Message<JsonObject>,
+        exceptionHandler: EbExceptionHandler
+    ) {
         (method.invoke(impl, *parseArgs(method, args)) as Maybe<Any>).subscribe(
             {
                 message.reply(JsonObject().put(EB_METHOD_RESULT_KEY, JsonObject.mapFrom(it)))
             },
             {
-                message.fail(1, it.message)
-            },{
+                handleException(message, exceptionHandler, it)
+            },
+            {
                 message.reply(JsonObject())
             }
         )
@@ -94,9 +118,15 @@ class EventBusSubscriberImpl : EventBusSubscriber {
                     Int::class.java -> args.getInteger(index)
                     Instant::class.java -> args.getInstant(index)
                     else -> Json.mapper.readValue(args.getValue(index).toString(), TypeFactory.rawClass(type))
-
                 }
             }
         }.toTypedArray()
+    }
+
+    private fun handleException(message: Message<JsonObject>, handler: EbExceptionHandler, throwable: Throwable) {
+
+        with(handler.mapTo(throwable)) {
+            message.fail(code, this.message)
+        }
     }
 }
