@@ -5,6 +5,7 @@ import io.reactivex.Completable
 import io.reactivex.Maybe
 import io.reactivex.Single
 import io.vertx.core.eventbus.DeliveryOptions
+import io.vertx.core.eventbus.ReplyException
 import io.vertx.core.json.Json
 import io.vertx.core.json.JsonObject
 import io.vertx.reactivex.core.eventbus.EventBus
@@ -13,25 +14,31 @@ import me.coweery.vertx.service.proxy.EB_COMPLETABLE_METHOD_SUCCESS
 import me.coweery.vertx.service.proxy.EB_METHOD_ARGUMENTS_KEY
 import me.coweery.vertx.service.proxy.EB_METHOD_HEADER
 import me.coweery.vertx.service.proxy.EB_METHOD_RESULT_KEY
+import me.coweery.vertx.service.proxy.exceptionhandler.EbException
+import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandler
+import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandlersMap
 import sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 
-class EbProxyFactoryImpl : EbProxyFactory {
+class EbProxyFactoryImpl(
+    private val ebExceptionHandlersMap: EbExceptionHandlersMap
+) : EbProxyFactory {
 
     override fun <T> create(eventBus: EventBus, serviceInterface: Class<T>): T {
 
         return Proxy.newProxyInstance(
             ClassLoader.getSystemClassLoader(),
             arrayOf(serviceInterface),
-            EbProxyInvocationHandler(eventBus, serviceInterface.name)
+            EbProxyInvocationHandler(eventBus, serviceInterface.name, ebExceptionHandlersMap)
         ) as T
     }
 
     private class EbProxyInvocationHandler(
         private val eventBus: EventBus,
-        private val address: String
+        private val address: String,
+        private val ebExceptionHandlersMap: EbExceptionHandlersMap
     ) : InvocationHandler {
 
         private val deliveryOptionsBuilder = DeliveryOptionsBuilder()
@@ -40,11 +47,15 @@ class EbProxyFactoryImpl : EbProxyFactory {
 
             val deliveryOptions = createDeliveryOptions(method, args)
             val body = createBody(args)
+            val exceptionHandler = ebExceptionHandlersMap.getReplyExceptionMapper(method)
 
             return when (method.returnType) {
                 Completable::class.java -> returnCompletable(eventBus, address, body, deliveryOptions)
+                    .decodeThrowable(exceptionHandler)
                 Single::class.java -> returnSingle(eventBus, address, body, deliveryOptions, method)
+                    .decodeThrowable(exceptionHandler)
                 Maybe::class.java -> returnMaybe(eventBus, address, body, deliveryOptions, method)
+                    .decodeThrowable(exceptionHandler)
                 else -> throw IllegalArgumentException()
             }
         }
@@ -133,6 +144,39 @@ class EbProxyFactoryImpl : EbProxyFactory {
                         Completable.error(UnknownError())
                     }
                 }
+        }
+
+        private fun <T> Single<T>.decodeThrowable(exceptionHandler: EbExceptionHandler): Single<T> {
+
+            return this.onErrorResumeNext {
+                if (it is ReplyException) {
+                    Single.error(exceptionHandler.mapFrom(EbException(it.failureCode(), it.message)))
+                } else {
+                    Single.error(it)
+                }
+            }
+        }
+
+        private fun Completable.decodeThrowable(exceptionHandler: EbExceptionHandler): Completable {
+
+            return this.onErrorResumeNext {
+                if (it is ReplyException) {
+                    Completable.error(exceptionHandler.mapFrom(EbException(it.failureCode(), it.message)))
+                } else {
+                    Completable.error(it)
+                }
+            }
+        }
+
+        private fun <T> Maybe<T>.decodeThrowable(exceptionHandler: EbExceptionHandler): Maybe<T> {
+
+            return this.onErrorResumeNext { t: Throwable ->
+                if (t is ReplyException) {
+                    Maybe.error(exceptionHandler.mapFrom(EbException(t.failureCode(), t.message)))
+                } else {
+                    Maybe.error(t)
+                }
+            }
         }
     }
 }
