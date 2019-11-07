@@ -23,7 +23,7 @@ class EbExceptionHandlersMapImpl : EbExceptionHandlersMap {
         return method.getAnnotation(me.coweery.vertx.service.proxy.annotations.options.EbExceptionHandler::class.java)?.let {
             val `class` = it.mapper
             handlers[`class`] ?: handlers.let {
-                val instance = `class`.java.newInstance() as? EbExceptionHandler ?: throw IllegalArgumentException()
+                val instance = `class`.java.newInstance() as EbExceptionHandler
                 it[`class`] = instance
                 instance
             }
