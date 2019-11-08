@@ -74,7 +74,7 @@ class EbProxyFactoryImpl(
                 EB_METHOD_ARGUMENTS_KEY,
                 args.filter { it !is DeliveryOptions }
                     .map {
-                        when(it){
+                        when (it) {
                             is String -> it
                             is Number -> it.toString()
                             else -> JsonObject.mapFrom(it)

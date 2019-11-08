@@ -37,7 +37,7 @@ class EventBusSubscriberImpl(
 
             val method = serviceInterface.methods.first {
                 it.name == methodName &&
-                        it.parameters.filter { it.type != DeliveryOptions::class.java }.size == args.size()
+                    it.parameters.filter { it.type != DeliveryOptions::class.java }.size == args.size()
             }
 
             val exceptionHandler = ebExceptionHandlersMap.getReplyExceptionMapper(method)
@@ -113,7 +113,7 @@ class EventBusSubscriberImpl(
                 index += 1
                 val type = parameter.parameterizedType
                 when (type) {
-                   String::class.java -> args.getString(index)
+                    String::class.java -> args.getString(index)
                     Long::class.java -> args.getLong(index)
                     Int::class.java -> args.getInteger(index)
                     Instant::class.java -> args.getInstant(index)
