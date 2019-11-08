@@ -151,10 +151,10 @@ class EbProxyFactoryImpl(
             return this.onErrorResumeNext {
                 if (it is ReplyException) {
                     with(EbException(it.failureCode(), it.message)) {
-                        Single.error(exceptionHandler.mapFrom(this))
+                        Single.error<T>(exceptionHandler.mapFrom(this))
                     }
                 } else {
-                    Single.error(it)
+                    Single.error<T>(it)
                 }
             }
         }
@@ -177,10 +177,10 @@ class EbProxyFactoryImpl(
             return this.onErrorResumeNext { t: Throwable ->
                 if (t is ReplyException) {
                     with(EbException(t.failureCode(), t.message)) {
-                        Maybe.error(exceptionHandler.mapFrom(this))
+                        Maybe.error<T>(exceptionHandler.mapFrom(this))
                     }
                 } else {
-                    Maybe.error(t)
+                    Maybe.error<T>(t)
                 }
             }
         }
