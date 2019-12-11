@@ -62,7 +62,11 @@ class EventBusSubscriberImpl(
             if (throwable != null) {
                 handleException(message, exceptionHandler, throwable)
             } else {
-                message.reply(JsonObject().put(EB_METHOD_RESULT_KEY, JsonObject.mapFrom(res)))
+                when(res){
+                    is List<*> -> message.reply(JsonObject()
+                        .put(EB_METHOD_RESULT_KEY, JsonArray(res.map { JsonObject.mapFrom(it) })))
+                    else -> message.reply(JsonObject().put(EB_METHOD_RESULT_KEY, JsonObject.mapFrom(res)))
+                }
             }
         }
     }

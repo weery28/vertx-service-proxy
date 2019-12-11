@@ -78,7 +78,7 @@ class EbProxyFactoryImpl(
                     .map {
                         when (it) {
                             is String -> it
-                            is Number -> it.toString()
+                            is Number -> it
                             is List<*> -> JsonArray(it)
                             is Date -> it.toInstant()
                             else -> JsonObject.mapFrom(it)
