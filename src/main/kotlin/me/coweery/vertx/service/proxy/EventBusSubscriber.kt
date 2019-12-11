@@ -14,6 +14,7 @@ import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandler
 import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandlersMap
 import java.lang.reflect.Method
 import java.time.Instant
+import java.util.Date
 
 interface EventBusSubscriber {
 
@@ -117,6 +118,7 @@ class EventBusSubscriberImpl(
                     Long::class.java -> args.getLong(index)
                     Int::class.java -> args.getInteger(index)
                     Instant::class.java -> args.getInstant(index)
+                    Date::class.java -> args.getInstant(index)
                     else -> Json.mapper.readValue(args.getValue(index).toString(), TypeFactory.rawClass(type))
                 }
             }
