@@ -117,8 +117,10 @@ class EventBusSubscriberImpl(
                     String::class.java -> args.getString(index)
                     Long::class.java -> args.getLong(index)
                     Int::class.java -> args.getInteger(index)
+                    Float::class.java -> args.getFloat(index)
+                    Double::class.java -> args.getDouble(index)
                     Instant::class.java -> args.getInstant(index)
-                    Date::class.java -> args.getInstant(index)
+                    Date::class.java -> Date.from(args.getInstant(index))
                     else -> Json.mapper.readValue(args.getValue(index).toString(), TypeFactory.rawClass(type))
                 }
             }
