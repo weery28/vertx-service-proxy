@@ -7,6 +7,7 @@ import io.reactivex.Single
 import io.vertx.core.eventbus.DeliveryOptions
 import io.vertx.core.eventbus.ReplyException
 import io.vertx.core.json.Json
+import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.reactivex.core.eventbus.EventBus
 import me.coweery.vertx.service.proxy.DeliveryOptionsBuilder
@@ -21,6 +22,7 @@ import sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
+import java.util.Date
 
 class EbProxyFactoryImpl(
     private val ebExceptionHandlersMap: EbExceptionHandlersMap
@@ -77,6 +79,8 @@ class EbProxyFactoryImpl(
                         when (it) {
                             is String -> it
                             is Number -> it.toString()
+                            is List<*> -> JsonArray(it)
+                            is Date -> it.toInstant()
                             else -> JsonObject.mapFrom(it)
                         }
                     }
