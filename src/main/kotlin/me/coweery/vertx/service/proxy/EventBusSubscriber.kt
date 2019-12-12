@@ -1,28 +1,28 @@
 package me.coweery.vertx.service.proxy
 
-import com.fasterxml.jackson.databind.type.TypeFactory
 import io.reactivex.Completable
 import io.reactivex.Maybe
 import io.reactivex.Single
 import io.vertx.core.eventbus.DeliveryOptions
-import io.vertx.core.json.Json
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.reactivex.core.eventbus.EventBus
 import io.vertx.reactivex.core.eventbus.Message
 import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandler
-import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandlersMap
+import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandlersFactory
+import me.coweery.vertx.service.proxy.factories.serialization.ReadersFactory
 import java.lang.reflect.Method
-import java.time.Instant
-import java.util.Date
 
 interface EventBusSubscriber {
 
     fun <T : Any> subscribe(eventBus: EventBus, serviceInterface: Class<T>, serviceImpl: T)
+
+    val readersFactory: ReadersFactory
 }
 
 class EventBusSubscriberImpl(
-    private val ebExceptionHandlersMap: EbExceptionHandlersMap
+    private val ebExceptionHandlersFactory: EbExceptionHandlersFactory,
+    override val readersFactory: ReadersFactory
 ) : EventBusSubscriber {
 
     override fun <T : Any> subscribe(eventBus: EventBus, serviceInterface: Class<T>, serviceImpl: T) {
@@ -41,10 +41,16 @@ class EventBusSubscriberImpl(
                     it.parameters.filter { it.type != DeliveryOptions::class.java }.size == args.size()
             }
 
-            val exceptionHandler = ebExceptionHandlersMap.getReplyExceptionMapper(method)
+            val exceptionHandler = ebExceptionHandlersFactory.getReplyExceptionMapper(method)
 
             when (method.returnType) {
-                Completable::class.java -> invokeWithCompletableResult(method, args, serviceImpl, message, exceptionHandler)
+                Completable::class.java -> invokeWithCompletableResult(
+                    method,
+                    args,
+                    serviceImpl,
+                    message,
+                    exceptionHandler
+                )
                 Single::class.java -> invokeWithSingleResult(method, args, serviceImpl, message, exceptionHandler)
                 Maybe::class.java -> invokeWithMaybeResult(method, args, serviceImpl, message, exceptionHandler)
             }
@@ -62,7 +68,7 @@ class EventBusSubscriberImpl(
             if (throwable != null) {
                 handleException(message, exceptionHandler, throwable)
             } else {
-                when(res){
+                when (res) {
                     is List<*> -> message.reply(JsonObject()
                         .put(EB_METHOD_RESULT_KEY, JsonArray(res.map { JsonObject.mapFrom(it) })))
                     else -> message.reply(JsonObject().put(EB_METHOD_RESULT_KEY, JsonObject.mapFrom(res)))
@@ -116,17 +122,7 @@ class EventBusSubscriberImpl(
                 DeliveryOptions()
             } else {
                 index += 1
-                val type = parameter.parameterizedType
-                when (type) {
-                    String::class.java -> args.getString(index)
-                    Long::class.java -> args.getLong(index)
-                    Int::class.java -> args.getInteger(index)
-                    Float::class.java -> args.getFloat(index)
-                    Double::class.java -> args.getDouble(index)
-                    Instant::class.java -> args.getInstant(index)
-                    Date::class.java -> Date.from(args.getInstant(index))
-                    else -> Json.mapper.readValue(args.getValue(index).toString(), TypeFactory.rawClass(type))
-                }
+                readersFactory.get(parameter.parameterizedType)(args, index)
             }
         }.toTypedArray()
     }

@@ -3,7 +3,7 @@ package me.coweery.vertx.service.proxy.exceptionhandler
 import java.lang.reflect.Method
 import kotlin.reflect.KClass
 
-class EbExceptionHandlersMapImpl : EbExceptionHandlersMap {
+class EbExceptionHandlersFactoryImpl : EbExceptionHandlersFactory {
 
     private val handlers: MutableMap<KClass<*>, EbExceptionHandler> = mutableMapOf()
 

@@ -7,7 +7,6 @@ import io.reactivex.Single
 import io.vertx.core.eventbus.DeliveryOptions
 import io.vertx.core.eventbus.ReplyException
 import io.vertx.core.json.Json
-import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.reactivex.core.eventbus.EventBus
 import me.coweery.vertx.service.proxy.DeliveryOptionsBuilder
@@ -17,15 +16,16 @@ import me.coweery.vertx.service.proxy.EB_METHOD_HEADER
 import me.coweery.vertx.service.proxy.EB_METHOD_RESULT_KEY
 import me.coweery.vertx.service.proxy.exceptionhandler.EbException
 import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandler
-import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandlersMap
+import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandlersFactory
+import me.coweery.vertx.service.proxy.factories.serialization.WritersFactory
 import sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
-import java.util.Date
 
 class EbProxyFactoryImpl(
-    private val ebExceptionHandlersMap: EbExceptionHandlersMap
+    private val ebExceptionHandlersFactory: EbExceptionHandlersFactory,
+    override val writersFactory: WritersFactory
 ) : EbProxyFactory {
 
     override fun <T> create(eventBus: EventBus, serviceInterface: Class<T>): T {
@@ -33,14 +33,15 @@ class EbProxyFactoryImpl(
         return Proxy.newProxyInstance(
             ClassLoader.getSystemClassLoader(),
             arrayOf(serviceInterface),
-            EbProxyInvocationHandler(eventBus, serviceInterface.name, ebExceptionHandlersMap)
+            EbProxyInvocationHandler(eventBus, serviceInterface.name, ebExceptionHandlersFactory, writersFactory)
         ) as T
     }
 
     private class EbProxyInvocationHandler(
         private val eventBus: EventBus,
         private val address: String,
-        private val ebExceptionHandlersMap: EbExceptionHandlersMap
+        private val ebExceptionHandlersFactory: EbExceptionHandlersFactory,
+        private val writersFactory: WritersFactory
     ) : InvocationHandler {
 
         private val deliveryOptionsBuilder = DeliveryOptionsBuilder()
@@ -48,8 +49,8 @@ class EbProxyFactoryImpl(
         override fun invoke(proxy: Any, method: Method, args: Array<out Any>): Any {
 
             val deliveryOptions = createDeliveryOptions(method, args)
-            val body = createBody(args)
-            val exceptionHandler = ebExceptionHandlersMap.getReplyExceptionMapper(method)
+            val body = createBody(args, writersFactory)
+            val exceptionHandler = ebExceptionHandlersFactory.getReplyExceptionMapper(method)
 
             return when (method.returnType) {
                 Completable::class.java -> returnCompletable(eventBus, address, body, deliveryOptions)
@@ -70,18 +71,22 @@ class EbProxyFactoryImpl(
             ).addHeader(EB_METHOD_HEADER, method.name)
         }
 
-        private fun createBody(args: Array<out Any>): JsonObject {
+        private fun createBody(
+            args: Array<out Any>,
+            writersFactory: WritersFactory
+
+        ): JsonObject {
+
+            val argsWriters = writersFactory.getCustoms(args)
 
             return JsonObject().put(
                 EB_METHOD_ARGUMENTS_KEY,
                 args.filter { it !is DeliveryOptions }
-                    .map {
-                        when (it) {
-                            is String -> it
-                            is Number -> it
-                            is List<*> -> JsonArray(it)
-                            is Date -> it.toInstant()
-                            else -> JsonObject.mapFrom(it)
+                    .mapIndexed { i, arg ->
+                        if (argsWriters[i] != null) {
+                            argsWriters[i]!!(arg)
+                        } else {
+                            writersFactory.get(args::class.java)(arg)
                         }
                     }
             )
