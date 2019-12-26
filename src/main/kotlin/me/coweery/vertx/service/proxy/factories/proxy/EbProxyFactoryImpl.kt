@@ -7,6 +7,7 @@ import io.reactivex.Single
 import io.vertx.core.eventbus.DeliveryOptions
 import io.vertx.core.eventbus.ReplyException
 import io.vertx.core.json.Json
+import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import io.vertx.reactivex.core.eventbus.EventBus
 import me.coweery.vertx.service.proxy.DeliveryOptionsBuilder
@@ -106,10 +107,27 @@ class EbProxyFactoryImpl(
             return eventBus
                 .rxRequest<JsonObject>(address, body, deliveryOptions)
                 .map {
-                    Json.mapper.readValue(
-                        it.body().getValue(EB_METHOD_RESULT_KEY).toString(),
-                        TypeFactory.rawClass(resultClass)
-                    )
+                    if (resultClass is ParameterizedTypeImpl){
+                        if (resultClass.rawType == List::class.java){
+                            val childClass = resultClass.actualTypeArguments.first()
+                            JsonArray(it.body().getValue(EB_METHOD_RESULT_KEY).toString()).map {
+                                Json.mapper.readValue(
+                                    (it as JsonObject).encode(),
+                                    TypeFactory.rawClass(childClass)
+                                )
+                            }
+                        } else {
+                            Json.mapper.readValue(
+                                it.body().getValue(EB_METHOD_RESULT_KEY).toString(),
+                                TypeFactory.rawClass(resultClass)
+                            )
+                        }
+                    } else {
+                        Json.mapper.readValue(
+                            it.body().getValue(EB_METHOD_RESULT_KEY).toString(),
+                            TypeFactory.rawClass(resultClass)
+                        )
+                    }
                 }
         }
 
