@@ -1,5 +1,6 @@
 package me.coweery.vertx.service.proxy.factories.serialization
 
+import com.fasterxml.jackson.databind.type.TypeFactory
 import io.vertx.core.json.JsonArray
 import java.lang.reflect.Type
 import java.util.Date
@@ -10,8 +11,9 @@ class ReadersFactoryImpl : ReadersFactory {
 
     private val defaultReader: (Type) -> ((JsonArray, Int) -> Any) = { type ->
         { args, index ->
-            when (type) {
 
+            val clas = TypeFactory.rawClass(type)
+            when (clas) {
                 Double::class.java -> args.getDouble(index)
                 String::class.java -> args.getString(index)
                 Float::class.java -> args.getFloat(index)
@@ -19,6 +21,7 @@ class ReadersFactoryImpl : ReadersFactory {
                 Integer::class.java -> args.getInteger(index)
                 Long::class.java -> args.getLong(index)
                 Date::class.java -> Date.from(args.getInstant(index))
+                List::class.java -> args.getJsonArray(index).toList()
                 else -> args.getJsonObject(index).mapTo(Class.forName(type.typeName))
             }
         }

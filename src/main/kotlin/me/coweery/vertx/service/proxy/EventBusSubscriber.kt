@@ -12,6 +12,7 @@ import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandler
 import me.coweery.vertx.service.proxy.exceptionhandler.EbExceptionHandlersFactory
 import me.coweery.vertx.service.proxy.factories.serialization.ReadersFactory
 import java.lang.reflect.Method
+import java.util.Date
 
 interface EventBusSubscriber {
 
@@ -68,9 +69,17 @@ class EventBusSubscriberImpl(
             if (throwable != null) {
                 handleException(message, exceptionHandler, throwable)
             } else {
+                val resClass = res::class.java
                 when (res) {
                     is List<*> -> message.reply(JsonObject()
-                        .put(EB_METHOD_RESULT_KEY, JsonArray(res.map { JsonObject.mapFrom(it) })))
+                        .put(EB_METHOD_RESULT_KEY, JsonArray(res.map {
+                            when (it) {
+                                is Long -> it
+                                is Int -> it
+                                is Date -> it.toInstant()
+                                else -> JsonObject.mapFrom(it)
+                            }
+                        })))
                     else -> message.reply(JsonObject().put(EB_METHOD_RESULT_KEY, JsonObject.mapFrom(res)))
                 }
             }

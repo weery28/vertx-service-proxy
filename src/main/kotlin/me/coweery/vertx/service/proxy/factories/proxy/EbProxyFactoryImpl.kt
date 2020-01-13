@@ -107,14 +107,15 @@ class EbProxyFactoryImpl(
             return eventBus
                 .rxRequest<JsonObject>(address, body, deliveryOptions)
                 .map {
-                    if (resultClass is ParameterizedTypeImpl){
-                        if (resultClass.rawType == List::class.java){
-                            val childClass = resultClass.actualTypeArguments.first()
+                    if (resultClass is ParameterizedTypeImpl) {
+                        if (resultClass.rawType == List::class.java) {
+                            val childClass = TypeFactory.rawClass(resultClass.actualTypeArguments.first())
                             JsonArray(it.body().getValue(EB_METHOD_RESULT_KEY).toString()).map {
-                                Json.mapper.readValue(
-                                    (it as JsonObject).encode(),
-                                    TypeFactory.rawClass(childClass)
-                                )
+                                when (childClass) {
+                                    java.lang.Integer::class.java -> it
+                                    java.lang.Long::class.java -> it
+                                    else -> Json.mapper.readValue((it as JsonObject).encode(), childClass)
+                                }
                             }
                         } else {
                             Json.mapper.readValue(
