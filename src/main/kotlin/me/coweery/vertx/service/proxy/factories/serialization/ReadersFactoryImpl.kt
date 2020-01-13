@@ -2,6 +2,8 @@ package me.coweery.vertx.service.proxy.factories.serialization
 
 import com.fasterxml.jackson.databind.type.TypeFactory
 import io.vertx.core.json.JsonArray
+import io.vertx.core.json.JsonObject
+import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Type
 import java.util.Date
 
@@ -21,7 +23,16 @@ class ReadersFactoryImpl : ReadersFactory {
                 Integer::class.java -> args.getInteger(index)
                 Long::class.java -> args.getLong(index)
                 Date::class.java -> Date.from(args.getInstant(index))
-                List::class.java -> args.getJsonArray(index).toList()
+                List::class.java -> args.getJsonArray(index).toList().let {
+                    if (it.firstOrNull() is JsonObject){
+                        val genericType = (type as ParameterizedType).actualTypeArguments.first()
+                        val genericClass = TypeFactory.rawClass(genericType)
+                        it.map { (it as JsonObject).mapTo(genericClass) }
+                    } else {
+                        it
+                    }
+
+                }
                 else -> args.getJsonObject(index).mapTo(Class.forName(type.typeName))
             }
         }

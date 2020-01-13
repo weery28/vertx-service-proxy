@@ -33,12 +33,16 @@ class WritersFactoryImpl : WritersFactory {
         }
     }
 
-    private fun checkAndCopy(obj: Any): Any {
+    private fun checkAndCopy(obj: Any?): Any {
 
-        return try {
-            JsonUtils.checkAndCopy(obj, true)
-        } catch (e: IllegalStateException) {
-            JsonObject.mapFrom(obj).copy()
+        return if (obj is List<*>) {
+            obj.map { checkAndCopy(it) }
+        } else {
+            try {
+                JsonUtils.checkAndCopy(obj, true)
+            } catch (e: IllegalStateException) {
+                JsonObject.mapFrom(obj).copy()
+            }
         }
     }
 }
