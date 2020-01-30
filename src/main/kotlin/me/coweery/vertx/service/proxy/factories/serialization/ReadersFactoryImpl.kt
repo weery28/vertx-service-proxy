@@ -24,14 +24,13 @@ class ReadersFactoryImpl : ReadersFactory {
                 Long::class.java -> args.getLong(index)
                 Date::class.java -> Date.from(args.getInstant(index))
                 List::class.java -> args.getJsonArray(index).toList().let {
-                    if (it.firstOrNull() is JsonObject){
+                    if (it.firstOrNull() is JsonObject) {
                         val genericType = (type as ParameterizedType).actualTypeArguments.first()
                         val genericClass = TypeFactory.rawClass(genericType)
                         it.map { (it as JsonObject).mapTo(genericClass) }
                     } else {
                         it
                     }
-
                 }
                 else -> args.getJsonObject(index).mapTo(Class.forName(type.typeName))
             }
